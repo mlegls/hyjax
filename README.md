@@ -16,3 +16,13 @@ The goals are
 2. let fully JIT-compiled JAX code be written in idiomatic Lisp
 
 Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.io/en/latest/notebooks/quickstart.html) tutorials are in `src/experiments.hy`. The [Hy](https://docs.hylang.org/en/stable/index.html) and [JAX](https://jax.readthedocs.io/en/latest/) docs might also be helpful.
+
+## Features
+- [x] `(mapv f vec)` as `vmap(f)(vec)`
+- [x] `(if/ja pred then else)` as `lax.cond`
+- [x] `(defn/j f [args] body)` as `@jit def f(args): ...`
+  - [x] identical syntax to Hy's [`defn`](https://docs.hylang.org/en/stable/api.html#defn); supports other decorators, annotations, variadic & keyword args
+- [x] `(if pred then else)` inside `defn/j` as `lax.cond`
+  - [x] works with any macros that compile to `if`, such as `cond`
+- [ ] binding for `lax.while_loop`
+- [ ] binding for `lax.fori_loop`
