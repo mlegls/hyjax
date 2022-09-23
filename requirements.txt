@@ -1,0 +1,14 @@
+absl-py==1.2.0
+colorama==0.4.5
+etils==0.8.0
+funcparserlib==1.0.0
+hy==0.24.0
+hyrule==0.2
+importlib-resources==5.9.0
+jax==0.3.17
+jaxlib==0.3.15
+numpy==1.23.3
+opt-einsum==3.3.0
+scipy==1.9.1
+typing_extensions==4.3.0
+zipp==3.8.1
