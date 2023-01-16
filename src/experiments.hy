@@ -10,7 +10,7 @@
                    Symbol])
 
 (require hyrule [with-gensyms smacrolet]
-         hyjax [defn/j mapv if/j if/ja])
+         hyjax [defn/j mapv lcond if/j])
 
 ;;; Experiments
 
@@ -59,5 +59,5 @@
 
 (print (. (test-cond 4) (block_until_ready)))
 
-(macroexpand '(if/j [a b] (= a b) (+ a 1) (- b 2)))
-(macroexpand '(if/ja (jnp.less x 0) (jnp.add x 1) (jnp.subtract x 1)))
+(macroexpand '(lcond [a b] (= a b) (+ a 1) (- b 2)))
+(macroexpand '(if/j (jnp.less x 0) (jnp.add x 1) (jnp.subtract x 1)))
