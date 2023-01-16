@@ -43,19 +43,26 @@
       derivative_fn (grad sum_logistic)]
   (print (derivative_fn x_small)))
 
-(defn test-if [x]
+(macroexpand '(defn/j test-if [x]
+                (if (< x 3)
+                  (* 3 (** x 2))
+                  (* -4 x))))
+
+             
+(defn/j test-if [x]
   (if (< x 3)
-    (* 3. (** x 2))
+    (* 3 (** x 2))
     (* -4 x)))   
 
 (print (test-if 2))
     
 
+; TODO fix mismatched branch structure
 (defn/j test-cond [x]
-  (let [operand (jnp.array [0.])]
-    (cond False (+ operand 2) 
-          False (+ x 2)
-          True (- operand x))))    
+  (let [operand (jnp.array [0])]
+    (cond (< x 2) (+ operand 2) 
+          (< x 4) (+ x 2)
+          (< x 6) (- operand x))))    
 
 (print (. (test-cond 4) (block_until_ready)))
 

@@ -46,15 +46,15 @@
 
 (defmacro defn/j [#* args]
   "define jit-compiled function; replacing control flow with lax constructs"
-  `(smacrolet [if lcond]
-     ~(match args
-        ; plain defn 
-        [(| (Symbol name) (Expression name)) (HyList args) #* body] 
-        `(defn [jit] ~name ~args ~@body)
+  `((defmacro if [#* args] `(if/j ~@args))
+    ~(match args
+       ; plain defn 
+       [(| (Symbol name) (Expression name)) (HyList args) #* body] 
+       `(defn [jit] ~name ~args ~@body)
 
-        ; with decorators
-        [(HyList decorators) (| (Symbol name) (Expression name)) (HyList args) #* body] 
-        `(defn [jit ~@decorators] ~name ~args ~@body))))
+       ; with decorators
+       [(HyList decorators) (| (Symbol name) (Expression name)) (HyList args) #* body] 
+       `(defn [jit ~@decorators] ~name ~args ~@body))))
 
 (defmacro mapv [f v]
   `((vmap ~f) ~v))
