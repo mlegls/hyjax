@@ -30,7 +30,7 @@
        (let [~bindings binding-list]
          ~@body))))
 
-(defmacro if/j [bindings pred true-case false-case]
+(defmacro lcond [bindings pred true-case false-case]
   "lax cond, with if-like syntax"
   `(lax.cond ~pred
              ~(fn-with-bindings bindings true-case)
@@ -39,14 +39,14 @@
 
 ;;; API Macros
 
-(defmacro if/ja [pred true-case false-case]
-  "if/j with auto binding detection"
+(defmacro if/j [pred true-case false-case]
+  "lcond with auto binding detection"
   (let [bindings (unique (reduce + (map find-symbols [pred true-case false-case])))]
-    `(if/j ~bindings ~pred ~true-case ~false-case)))
+    `(lcond ~bindings ~pred ~true-case ~false-case)))
 
 (defmacro defn/j [#* args]
   "define jit-compiled function; replacing control flow with lax constructs"
-  `(smacrolet [if if/ja]
+  `(smacrolet [if lcond]
      ~(match args
         ; plain defn 
         [(| (Symbol name) (Expression name)) (HyList args) #* body] 
