@@ -37,12 +37,26 @@
              ~(fn-with-bindings bindings false-case)
              ~bindings))
 
+(defn _cond/j [args]
+  (if (> (len args) 1)
+    `(if/j ~(get args 0)
+      ~(get args 1)
+      ~(_cond/j (cut args 2 None)))
+    (get args 0)))
+
 ;;; API Macros
 
 (defmacro if/j [pred true-case false-case]
   "lcond with auto binding detection"
   (let [bindings (unique (reduce + (map find-symbols [pred true-case false-case])))]
     `(lcond ~bindings ~pred ~true-case ~false-case)))
+
+(defmacro cond/j [#* args]
+  "cond macro with lax cond"
+  (if (not (% (len args) 2))
+    (raise (ValueError "cond/j requires an odd number of arguments"))
+    (_cond/j args)))
+
 
 (defmacro defn/j [#* args]
   "define jit-compiled function; replacing control flow with lax constructs"

@@ -11,7 +11,7 @@
                    Symbol])
 
 (require hyrule [with-gensyms smacrolet]
-         hyjax [defn/j mapv lcond if/j])
+         hyjax [defn/j mapv lcond if/j cond/j])
 
 ;;; Experiments
 
@@ -46,30 +46,49 @@
 
 (defn/j test-if [x]
         (if/j (< x 3)
-          (* 3 (** x 2))
-          (* -4 x)))   
+              (* 3 (** x 2))
+              (* -4 x)))   
 
 (print (test-if 2))
+
+(defn/j test-nested-if [x]
+        (if/j (< x 3) (* 3 (** x 2))
+              (if/j (< x 5) (* -4 x)
+                    (* 5 x))))
+
+(print (test-nested-if 2))
+
+(defn/j test-cond [x]
+        (cond/j
+          (< x 3) (* 3 (** x 2))
+          (< x 5) (* -4 x)
+          (* 5 x)))
+
+(print (test-cond 2))
+
 
 ; TODO fix mismatched branch structure
 (defn/j test-cond [x]
         (let [operand (jnp.array [0])]
-          (cond False (+ operand 2) 
-                False (+ x 2)
-                True (- operand x))))    
+          (cond/j False (+ operand 2) 
+                  False (+ operand x)
+                  (- operand x))))    
 
 (print (. (test-cond 4) (block_until_ready)))
+
 
 (macroexpand '(lcond [a b] (= a b) (+ a 1) (- b 2)))
 (macroexpand '(if/j (jnp.less x 0) (jnp.add x 1) (jnp.subtract x 1)))
 (macroexpand '(defn/j test-if [x]
-                      (if (< x 3)
-                        (* 3 (** x 2))
-                        (* -4 x))))
-
+                      (if/j (< x 3)
+                            (* 3 (** x 2))
+                            (* -4 x))))
 (macroexpand-all '(defn/j test-cond [x]
                           (let [operand (jnp.array [0])]
-                            (cond (< x 2) (+ operand 2) 
-                                  (< x 4) (+ x 2)
-                                  (< x 6) (- operand x)))))
+                            (cond/j (< x 2) (+ operand 2) 
+                                    (< x 4) (+ x 2)
+                                    (- operand x)))))
+(macroexpand '(cond/j (< x 3) (* 3 (** x 2))
+                      (< x 5) (* -4 x)
+                      (* 5 x)))
 
