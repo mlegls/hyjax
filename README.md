@@ -4,6 +4,7 @@
 
 Hyjax is [Hy](https://github.com/hylang/hy) bindings for [JAX](https://github.com/google/jax). 
 
+
 > When walking about the countryside of Italy, the people will not hesitate to tell you that JAX has [“una anima di pura programmazione funzionale”](https://www.sscardapane.it/iaml-backup/jax-intro/).
 > –– <cite>[🔪 JAX - The Sharp Bits 🔪](https://jax.readthedocs.io/en/latest/notebooks/Common_Gotchas_in_JAX.html?highlight=pure%20functional)</cite>
 
