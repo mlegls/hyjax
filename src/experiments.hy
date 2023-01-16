@@ -4,6 +4,7 @@
              grad jit vmap
              random]
         hy [macroexpand]
+        hyrule [macroexpand-all]
         hy.pyops [reduce +]
         hy.models [List :as HyList 
                    Expression
@@ -23,7 +24,7 @@
   (print (. jnp (dot x x.T) (block_until_ready))))
 
 (defn/j selu [x [alpha 1.67] [lmbda 1.05]]
-  (* lmbda (jnp.where (> x 0) x (- (* alpha (jnp.exp x) alpha)))))
+        (* lmbda (jnp.where (> x 0) x (- (* alpha (jnp.exp x) alpha)))))
 
 (let [x (random.normal key #(1000000))]
   (print (. (selu x) (block_until_ready))))
@@ -43,28 +44,32 @@
       derivative_fn (grad sum_logistic)]
   (print (derivative_fn x_small)))
 
-(macroexpand '(defn/j test-if [x]
-                (if (< x 3)
-                  (* 3 (** x 2))
-                  (* -4 x))))
-
-             
 (defn/j test-if [x]
-  (if (< x 3)
-    (* 3 (** x 2))
-    (* -4 x)))   
+        (if/j (< x 3)
+          (* 3 (** x 2))
+          (* -4 x)))   
 
 (print (test-if 2))
-    
 
 ; TODO fix mismatched branch structure
 (defn/j test-cond [x]
-  (let [operand (jnp.array [0])]
-    (cond (< x 2) (+ operand 2) 
-          (< x 4) (+ x 2)
-          (< x 6) (- operand x))))    
+        (let [operand (jnp.array [0])]
+          (cond False (+ operand 2) 
+                False (+ x 2)
+                True (- operand x))))    
 
 (print (. (test-cond 4) (block_until_ready)))
 
 (macroexpand '(lcond [a b] (= a b) (+ a 1) (- b 2)))
 (macroexpand '(if/j (jnp.less x 0) (jnp.add x 1) (jnp.subtract x 1)))
+(macroexpand '(defn/j test-if [x]
+                      (if (< x 3)
+                        (* 3 (** x 2))
+                        (* -4 x))))
+
+(macroexpand-all '(defn/j test-cond [x]
+                          (let [operand (jnp.array [0])]
+                            (cond (< x 2) (+ operand 2) 
+                                  (< x 4) (+ x 2)
+                                  (< x 6) (- operand x)))))
+
