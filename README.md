@@ -64,5 +64,11 @@ Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.i
   (fori/l [i (range n)]
     (setv acc (+ acc i)))
   ```
+- [x] `(lwhile [pattern init] cond body-expr)` and
+  `(lfori [i lo hi] [pattern init] body-expr)` — explicit-binding
+  forms (lower level, like `lcond`). Use these when you want full
+  control over what's in the carry, e.g. to keep loop-local
+  temporaries out of it, or when the body is more naturally an
+  expression than a sequence of `(setv ...)` statements.
 - [ ] binding for `lax.while_loop`
 - [ ] binding for `lax.fori_loop`
