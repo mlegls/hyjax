@@ -82,12 +82,13 @@
 (defn test-cond-j-fallthrough []
   (assert (= (int (piecewise (jnp.array 10))) 50)))
 
-;;; while/l — lax.while_loop wrapper
+;;; while/l — imperative while-syntax over lax.while_loop
 
 (defn/j count-to [n]
-  (while/l [v 0]
-           (< v n)
-           (+ v 1)))
+  (setv v (jnp.int32 0))
+  (while/l (< v n)
+    (setv v (+ v 1)))
+  v)
 
 (defn test-while-l-counts []
   (assert (= (int (count-to (jnp.array 7))) 7))
@@ -95,25 +96,26 @@
 
 (defn/j collatz-steps [start]
   ;; number of Collatz steps from `start` until we reach 1.
-  (let [result
-        (while/l [[v steps] #((jnp.int32 start) (jnp.int32 0))]
-                 (> v 1)
-                 #((jnp.where (= (% v 2) 0)
-                              (// v 2)
-                              (+ (* 3 v) 1))
-                   (+ steps 1)))]
-    (get result 1)))
+  (setv v     (jnp.int32 start))
+  (setv steps (jnp.int32 0))
+  (while/l (> v 1)
+    (setv v (jnp.where (= (% v 2) 0)
+                       (// v 2)
+                       (+ (* 3 v) 1)))
+    (setv steps (+ steps 1)))
+  steps)
 
 (defn test-while-l-multi-state []
   ;; 27 -> 1 takes 111 Collatz steps.
   (assert (= (int (collatz-steps (jnp.array 27))) 111)))
 
-;;; fori/l — lax.fori_loop wrapper
+;;; fori/l — imperative for-syntax over lax.fori_loop
 
 (defn/j sum-range [n]
-  (fori/l [i 0 n]
-          [acc (jnp.int32 0)]
-          (+ acc i)))
+  (setv acc (jnp.int32 0))
+  (fori/l [i (range n)]
+    (setv acc (+ acc i)))
+  acc)
 
 (defn test-fori-l-sum []
   ;; sum of 0..9 = 45
@@ -121,26 +123,40 @@
   (assert (= (int (sum-range 0)) 0)))
 
 (defn/j factorial [n]
-  (fori/l [i 1 (+ n 1)]
-          [acc (jnp.int32 1)]
-          (* acc i)))
+  (setv acc (jnp.int32 1))
+  (fori/l [i (range 1 (+ n 1))]
+    (setv acc (* acc i)))
+  acc)
 
 (defn test-fori-l-factorial []
   (assert (= (int (factorial 5)) 120))
   (assert (= (int (factorial 1)) 1)))
 
 (defn/j fib [n]
-  ;; multi-state fori: carry (a, b) = (fib_i, fib_{i+1})
-  (let [result
-        (fori/l [i 0 n]
-                [[a b] #((jnp.int32 0) (jnp.int32 1))]
-                #(b (+ a b)))]
-    (get result 0)))
+  ;; Fibonacci via simultaneous (a, b) = (b, a+b) assignment.
+  (setv a (jnp.int32 0))
+  (setv b (jnp.int32 1))
+  (fori/l [i (range n)]
+    (setv [a b] #(b (+ a b))))
+  a)
 
 (defn test-fori-l-multi-state []
   (assert (= (int (fib 0)) 0))
   (assert (= (int (fib 1)) 1))
   (assert (= (int (fib 10)) 55)))
+
+;;; while/l walker should not leak let-local setvs into the carry
+
+(defn/j count-with-let [n]
+  (setv v (jnp.int32 0))
+  (while/l (< v n)
+    ;; `tmp` lives in a let scope; must NOT become part of the carry
+    (let [tmp (+ v 1)]
+      (setv v tmp)))
+  v)
+
+(defn test-while-l-ignores-inner-scopes []
+  (assert (= (int (count-with-let (jnp.array 5))) 5)))
 
 ;;; defn/j composes with jax.grad
 

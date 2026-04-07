@@ -41,8 +41,28 @@ Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.i
 - [x] `(cond/l pred1 result1 pred2 result2 ... default)` as a chain of `lax.cond`
   - multi-branch form, mirroring Lisp `cond`
 - [x] `(lcond [bindings] pred then else)` — lower-level form with explicit closed-over bindings
-- [x] `(while/l [v init] cond body)` as `lax.while_loop`
-  - state pattern may destructure: `(while/l [[a b] #(0 1)] (< a 10) #((+ a 1) (* b 2)))`
-- [x] `(fori/l [i lo hi] [acc init] body)` as `lax.fori_loop`
+- [x] `(while/l cond body...)` as `lax.while_loop`, with imperative
+  while-syntax. Variables assigned via `(setv ...)` in the body are
+  auto-detected as the loop carry; they must be pre-bound in the
+  enclosing scope. The walker descends through `let` and `for` while
+  ignoring their local bindings, and skips nested `fn`/`defn` bodies.
+  ```hy
+  (setv v 0)
+  (while/l (< v 10)
+    (setv v (+ v 1)))
+  ```
+  For simultaneous updates, use destructuring assignment:
+  ```hy
+  (setv a 0  b 1)
+  (while/l (< a 100)
+    (setv [a b] #(b (+ a b))))
+  ```
+- [x] `(fori/l [i (range ...)] body...)` as `lax.fori_loop`, with
+  imperative for-syntax. Same auto-carry rules as `while/l`.
+  ```hy
+  (setv acc 0)
+  (fori/l [i (range n)]
+    (setv acc (+ acc i)))
+  ```
 - [ ] binding for `lax.while_loop`
 - [ ] binding for `lax.fori_loop`
