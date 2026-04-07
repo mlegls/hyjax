@@ -114,8 +114,14 @@
                       ~(fn-with-bindings bindings false-case)
                       ~bindings))
 
-(defmacro lcond [bindings pred true-case false-case]
-  "lax cond, with if-like syntax"
+(defmacro if/lp [bindings pred true-case false-case]
+  "Explicit-binding lax.cond wrapper. Lower-level form of if/l.
+
+  The bindings list is the explicit closure passed through lax.cond;
+  use this when you don't want auto-detection of free symbols.
+
+      (if/lp [a b] (= a b) (+ a 1) (- b 2))
+  "
   (_lcond-form bindings pred true-case false-case))
 
 (defn _cond/l [args]
@@ -154,26 +160,26 @@
 (defmacro mapv [f v]
   `((hy.I.jax.vmap ~f) ~v))
 
-(defmacro lwhile [binding cond-expr body-expr]
+(defmacro while/lp [binding cond-expr body-expr]
   "Explicit-binding lax.while_loop wrapper. Lower-level form of while/l.
 
   The state binding is [pattern init]; the body is a single expression
   that returns the new state. The pattern may destructure a tuple.
 
-      (lwhile [v 0]
-              (< v 10)
-              (+ v 1))
+      (while/lp [v 0]
+                (< v 10)
+                (+ v 1))
 
-      (lwhile [[a b] #(0 1)]
-              (< a 10)
-              #((+ a 1) (* b 2)))
+      (while/lp [[a b] #(0 1)]
+                (< a 10)
+                #((+ a 1) (* b 2)))
 
   Use this when you want full control over what's in the carry, e.g.
   to keep loop-local temporaries out of it, or when the body is more
   naturally an expression than a sequence of (setv ...) statements.
   "
   (when (!= (len binding) 2)
-    (raise (ValueError "lwhile binding must be [pattern init]")))
+    (raise (ValueError "while/lp binding must be [pattern init]")))
   (let [pattern (get binding 0)
         init    (get binding 1)
         carry   (hy.gensym "carry")]
@@ -182,19 +188,19 @@
        (fn [~carry] (setv ~pattern ~carry) ~body-expr)
        ~init)))
 
-(defmacro lfori [index-binding state-binding body-expr]
+(defmacro fori/lp [index-binding state-binding body-expr]
   "Explicit-binding lax.fori_loop wrapper. Lower-level form of fori/l.
 
-      (lfori [i 0 n]    ; index name, lower, upper
-             [acc 0]    ; carried state
-             (+ acc i))
+      (fori/lp [i 0 n]    ; index name, lower, upper
+               [acc 0]    ; carried state
+               (+ acc i))
 
-  Like lwhile, the state pattern may destructure a tuple.
+  Like while/lp, the state pattern may destructure a tuple.
   "
   (when (!= (len index-binding) 3)
-    (raise (ValueError "lfori index binding must be [i lower upper]")))
+    (raise (ValueError "fori/lp index binding must be [i lower upper]")))
   (when (!= (len state-binding) 2)
-    (raise (ValueError "lfori state binding must be [pattern init]")))
+    (raise (ValueError "fori/lp state binding must be [pattern init]")))
   (let [i       (get index-binding 0)
         lower   (get index-binding 1)
         upper   (get index-binding 2)

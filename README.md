@@ -40,7 +40,7 @@ Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.i
   - `/l` for **l**ax; if-like binary form
 - [x] `(cond/l pred1 result1 pred2 result2 ... default)` as a chain of `lax.cond`
   - multi-branch form, mirroring Lisp `cond`
-- [x] `(lcond [bindings] pred then else)` — lower-level form with explicit closed-over bindings
+- [x] `(if/lp [bindings] pred then else)` — explicit-binding ("lax pure") form of `if/l`; you list the closed-over symbols yourself instead of relying on auto-detection
 - [x] `(while/l cond body...)` as `lax.while_loop`, with imperative
   while-syntax. Variables assigned via `(setv ...)` in the body are
   auto-detected as the loop carry; they must be pre-bound in the
@@ -64,11 +64,23 @@ Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.i
   (fori/l [i (range n)]
     (setv acc (+ acc i)))
   ```
-- [x] `(lwhile [pattern init] cond body-expr)` and
-  `(lfori [i lo hi] [pattern init] body-expr)` — explicit-binding
-  forms (lower level, like `lcond`). Use these when you want full
+- [x] `(while/lp [pattern init] cond body-expr)` and
+  `(fori/lp [i lo hi] [pattern init] body-expr)` — explicit-binding
+  ("lax pure") forms of the loops. Use these when you want full
   control over what's in the carry, e.g. to keep loop-local
   temporaries out of it, or when the body is more naturally an
-  expression than a sequence of `(setv ...)` statements.
+  expression that returns the new state than a sequence of `(setv
+  ...)` statements.
+
+### Naming convention
+
+- `/j` — **j**it. Currently just `defn/j`.
+- `/l` — **l**ax, in its idiomatic form. Expression-style for
+  `if/l`/`cond/l` (auto-closes over free symbols), statement-style
+  for `while/l`/`fori/l` (auto-detects `(setv ...)` targets as the
+  loop carry).
+- `/lp` — **l**ax **p**ure. Always an expression that returns the
+  new state, with the bindings spelled out explicitly. Lower-level,
+  closer to the underlying `lax.*` primitive.
 - [ ] binding for `lax.while_loop`
 - [ ] binding for `lax.fori_loop`

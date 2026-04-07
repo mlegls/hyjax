@@ -4,7 +4,7 @@
         hy [macroexpand]
         hyrule [macroexpand-all])
 
-(require hyjax [defn/j mapv lcond if/l cond/l])
+(require hyjax [defn/j mapv if/lp if/l cond/l])
 
 ;;; Experiments
 
@@ -70,7 +70,7 @@
 (print (. (test-cond 4) (block_until_ready)))
 
 
-(macroexpand '(lcond [a b] (= a b) (+ a 1) (- b 2)))
+(macroexpand '(if/lp [a b] (= a b) (+ a 1) (- b 2)))
 (macroexpand '(if/l (jnp.less x 0) (jnp.add x 1) (jnp.subtract x 1)))
 (macroexpand '(defn/j test-if [x]
                       (if/l (< x 3)

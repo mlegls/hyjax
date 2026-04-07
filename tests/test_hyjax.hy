@@ -3,7 +3,7 @@
              grad
              random])
 
-(require hyjax [defn/j mapv if/l cond/l while/l fori/l lwhile lfori])
+(require hyjax [defn/j mapv if/l cond/l while/l fori/l while/lp fori/lp])
 
 ;;; defn/j — basic jit
 
@@ -145,20 +145,20 @@
   (assert (= (int (fib 1)) 1))
   (assert (= (int (fib 10)) 55)))
 
-;;; lwhile / lfori — explicit-binding forms
+;;; while/lp / fori/lp — explicit-binding forms
 
 (defn/j count-to-explicit [n]
-  (lwhile [v (jnp.int32 0)]
+  (while/lp [v (jnp.int32 0)]
           (< v n)
           (+ v 1)))
 
-(defn test-lwhile-counts []
+(defn test-while-lp-counts []
   (assert (= (int (count-to-explicit (jnp.array 4))) 4)))
 
 (defn/j collatz-explicit [start]
   ;; Same Collatz step counter, but with the carry written by hand.
   (let [result
-        (lwhile [[v steps] #((jnp.int32 start) (jnp.int32 0))]
+        (while/lp [[v steps] #((jnp.int32 start) (jnp.int32 0))]
                 (> v 1)
                 #((jnp.where (= (% v 2) 0)
                              (// v 2)
@@ -166,23 +166,23 @@
                   (+ steps 1)))]
     (get result 1)))
 
-(defn test-lwhile-multi-state []
+(defn test-while-lp-multi-state []
   (assert (= (int (collatz-explicit (jnp.array 27))) 111)))
 
 (defn/j sum-range-explicit [n]
-  (lfori [i 0 n] [acc (jnp.int32 0)]
+  (fori/lp [i 0 n] [acc (jnp.int32 0)]
          (+ acc i)))
 
-(defn test-lfori-sum []
+(defn test-fori-lp-sum []
   (assert (= (int (sum-range-explicit 10)) 45)))
 
 (defn/j fib-explicit [n]
   (let [result
-        (lfori [i 0 n] [[a b] #((jnp.int32 0) (jnp.int32 1))]
+        (fori/lp [i 0 n] [[a b] #((jnp.int32 0) (jnp.int32 1))]
                #(b (+ a b)))]
     (get result 0)))
 
-(defn test-lfori-multi-state []
+(defn test-fori-lp-multi-state []
   (assert (= (int (fib-explicit 10)) 55)))
 
 ;;; while/l walker should not leak let-local setvs into the carry
