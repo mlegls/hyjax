@@ -72,3 +72,51 @@
 
 (defmacro mapv [f v]
   `((hy.I.jax.vmap ~f) ~v))
+
+(defmacro while/l [binding cond-expr body-expr]
+  "lax.while_loop wrapper with a let-style state binding.
+
+  (while/l [v 0]
+           (< v 10)
+           (+ v 1))
+
+  The binding's left-hand side may be any pattern that Hy's (setv ...)
+  accepts, so multi-state loops can destructure a tuple:
+
+  (while/l [[a b] #(0 1)]
+           (< a 10)
+           #((+ a 1) (* b 2)))
+  "
+  (when (!= (len binding) 2)
+    (raise (ValueError "while/l binding must be [pattern init]")))
+  (let [pattern (get binding 0)
+        init    (get binding 1)
+        carry   (hy.gensym "carry")]
+    `(hy.I.jax.lax.while_loop
+       (fn [~carry] (setv ~pattern ~carry) ~cond-expr)
+       (fn [~carry] (setv ~pattern ~carry) ~body-expr)
+       ~init)))
+
+(defmacro fori/l [index-binding state-binding body-expr]
+  "lax.fori_loop wrapper.
+
+  (fori/l [i 0 n]    ; index name, lower, upper
+          [acc 0]    ; carried state
+          (+ acc i))
+
+  Like while/l, the state pattern may destructure a tuple.
+  "
+  (when (!= (len index-binding) 3)
+    (raise (ValueError "fori/l index binding must be [i lower upper]")))
+  (when (!= (len state-binding) 2)
+    (raise (ValueError "fori/l state binding must be [pattern init]")))
+  (let [i       (get index-binding 0)
+        lower   (get index-binding 1)
+        upper   (get index-binding 2)
+        pattern (get state-binding 0)
+        init    (get state-binding 1)
+        carry   (hy.gensym "carry")]
+    `(hy.I.jax.lax.fori_loop
+       ~lower ~upper
+       (fn [~i ~carry] (setv ~pattern ~carry) ~body-expr)
+       ~init)))

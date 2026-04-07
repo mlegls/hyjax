@@ -3,7 +3,7 @@
              grad
              random])
 
-(require hyjax [defn/j mapv if/l cond/l])
+(require hyjax [defn/j mapv if/l cond/l while/l fori/l])
 
 ;;; defn/j — basic jit
 
@@ -81,6 +81,66 @@
 
 (defn test-cond-j-fallthrough []
   (assert (= (int (piecewise (jnp.array 10))) 50)))
+
+;;; while/l — lax.while_loop wrapper
+
+(defn/j count-to [n]
+  (while/l [v 0]
+           (< v n)
+           (+ v 1)))
+
+(defn test-while-l-counts []
+  (assert (= (int (count-to (jnp.array 7))) 7))
+  (assert (= (int (count-to (jnp.array 0))) 0)))
+
+(defn/j collatz-steps [start]
+  ;; number of Collatz steps from `start` until we reach 1.
+  (let [result
+        (while/l [[v steps] #((jnp.int32 start) (jnp.int32 0))]
+                 (> v 1)
+                 #((jnp.where (= (% v 2) 0)
+                              (// v 2)
+                              (+ (* 3 v) 1))
+                   (+ steps 1)))]
+    (get result 1)))
+
+(defn test-while-l-multi-state []
+  ;; 27 -> 1 takes 111 Collatz steps.
+  (assert (= (int (collatz-steps (jnp.array 27))) 111)))
+
+;;; fori/l — lax.fori_loop wrapper
+
+(defn/j sum-range [n]
+  (fori/l [i 0 n]
+          [acc (jnp.int32 0)]
+          (+ acc i)))
+
+(defn test-fori-l-sum []
+  ;; sum of 0..9 = 45
+  (assert (= (int (sum-range 10)) 45))
+  (assert (= (int (sum-range 0)) 0)))
+
+(defn/j factorial [n]
+  (fori/l [i 1 (+ n 1)]
+          [acc (jnp.int32 1)]
+          (* acc i)))
+
+(defn test-fori-l-factorial []
+  (assert (= (int (factorial 5)) 120))
+  (assert (= (int (factorial 1)) 1)))
+
+(defn/j fib [n]
+  ;; multi-state fori: carry (a, b) = (fib_i, fib_{i+1})
+  (let [result
+        (fori/l [i 0 n]
+                [[a b] #((jnp.int32 0) (jnp.int32 1))]
+                #(b (+ a b)))]
+    (get result 0)))
+
+(defn test-fori-l-multi-state []
+  (assert (= (int (fib 0)) 0))
+  (assert (= (int (fib 1)) 1))
+  (assert (= (int (fib 10)) 55)))
 
 ;;; defn/j composes with jax.grad
 

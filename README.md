@@ -41,5 +41,8 @@ Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.i
 - [x] `(cond/l pred1 result1 pred2 result2 ... default)` as a chain of `lax.cond`
   - multi-branch form, mirroring Lisp `cond`
 - [x] `(lcond [bindings] pred then else)` — lower-level form with explicit closed-over bindings
+- [x] `(while/l [v init] cond body)` as `lax.while_loop`
+  - state pattern may destructure: `(while/l [[a b] #(0 1)] (< a 10) #((+ a 1) (* b 2)))`
+- [x] `(fori/l [i lo hi] [acc init] body)` as `lax.fori_loop`
 - [ ] binding for `lax.while_loop`
 - [ ] binding for `lax.fori_loop`
