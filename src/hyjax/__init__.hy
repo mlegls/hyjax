@@ -37,25 +37,26 @@
   "lax cond, with if-like syntax"
   (_lcond-form bindings pred true-case false-case))
 
-(defn _cond/j [args]
+(defn _cond/l [args]
   (if (> (len args) 1)
-    `(if/j ~(get args 0)
+    `(if/l ~(get args 0)
       ~(get args 1)
-      ~(_cond/j (cut args 2 None)))
+      ~(_cond/l (cut args 2 None)))
     (get args 0)))
 
 ;;; API Macros
 
-(defmacro if/j [pred true-case false-case]
-  "lcond with auto binding detection"
+(defmacro if/l [pred true-case false-case]
+  "if-like wrapper around lax.cond with auto binding detection"
   (let [bindings (unique (reduce + (map find-symbols [pred true-case false-case])))]
     (_lcond-form bindings pred true-case false-case)))
 
-(defmacro cond/j [#* args]
-  "cond macro with lax cond"
+(defmacro cond/l [#* args]
+  "cond-like chain of lax.cond branches; takes an odd number of forms
+  (pred1 result1 pred2 result2 ... default)"
   (if (not (% (len args) 2))
-    (raise (ValueError "cond/j requires an odd number of arguments"))
-    (_cond/j args)))
+    (raise (ValueError "cond/l requires an odd number of arguments"))
+    (_cond/l args)))
 
 
 (defmacro defn/j [#* args]

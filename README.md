@@ -33,11 +33,13 @@ The goals are
 Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.io/en/latest/notebooks/quickstart.html) tutorials are in `examples/experiments.hy`. The [Hy](https://docs.hylang.org/en/stable/index.html) and [JAX](https://jax.readthedocs.io/en/latest/) docs might also be helpful.
 
 ## Features
-- [x] `(mapv f vec)` as `vmap(f)(vec)`
-- [x] `(if/ja pred then else)` as `lax.cond`
 - [x] `(defn/j f [args] body)` as `@jit def f(args): ...`
-  - [x] identical syntax to Hy's [`defn`](https://docs.hylang.org/en/stable/api.html#defn); supports other decorators, annotations, variadic & keyword args
-- [x] `(if pred then else)` inside `defn/j` as `lax.cond`
-  - [x] works with any macros that compile to `if`, such as `cond`
+  - `/j` for **j**it; identical syntax to Hy's [`defn`](https://docs.hylang.org/en/stable/api.html#defn); supports other decorators, annotations, variadic & keyword args
+- [x] `(mapv f vec)` as `vmap(f)(vec)`
+- [x] `(if/l pred then else)` as `lax.cond`
+  - `/l` for **l**ax; if-like binary form
+- [x] `(cond/l pred1 result1 pred2 result2 ... default)` as a chain of `lax.cond`
+  - multi-branch form, mirroring Lisp `cond`
+- [x] `(lcond [bindings] pred then else)` — lower-level form with explicit closed-over bindings
 - [ ] binding for `lax.while_loop`
 - [ ] binding for `lax.fori_loop`

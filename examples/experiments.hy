@@ -4,7 +4,7 @@
         hy [macroexpand]
         hyrule [macroexpand-all])
 
-(require hyjax [defn/j mapv lcond if/j cond/j])
+(require hyjax [defn/j mapv lcond if/l cond/l])
 
 ;;; Experiments
 
@@ -38,21 +38,21 @@
   (print (derivative_fn x_small)))
 
 (defn/j test-if [x]
-        (if/j (< x 3)
+        (if/l (< x 3)
               (* 3 (** x 2))
               (* -4 x)))   
 
 (print (test-if 2))
 
 (defn/j test-nested-if [x]
-        (if/j (< x 3) (* 3 (** x 2))
-              (if/j (< x 5) (* -4 x)
+        (if/l (< x 3) (* 3 (** x 2))
+              (if/l (< x 5) (* -4 x)
                     (* 5 x))))
 
 (print (test-nested-if 2))
 
 (defn/j test-cond [x]
-        (cond/j
+        (cond/l
           (< x 3) (* 3 (** x 2))
           (< x 5) (* -4 x)
           (* 5 x)))
@@ -63,7 +63,7 @@
 ; TODO fix mismatched branch structure
 (defn/j test-cond [x]
         (let [operand (jnp.array [0])]
-          (cond/j False (+ operand 2) 
+          (cond/l False (+ operand 2) 
                   False (+ operand x)
                   (- operand x))))    
 
@@ -71,17 +71,17 @@
 
 
 (macroexpand '(lcond [a b] (= a b) (+ a 1) (- b 2)))
-(macroexpand '(if/j (jnp.less x 0) (jnp.add x 1) (jnp.subtract x 1)))
+(macroexpand '(if/l (jnp.less x 0) (jnp.add x 1) (jnp.subtract x 1)))
 (macroexpand '(defn/j test-if [x]
-                      (if/j (< x 3)
+                      (if/l (< x 3)
                             (* 3 (** x 2))
                             (* -4 x))))
 (macroexpand-all '(defn/j test-cond [x]
                           (let [operand (jnp.array [0])]
-                            (cond/j (< x 2) (+ operand 2) 
+                            (cond/l (< x 2) (+ operand 2) 
                                     (< x 4) (+ x 2)
                                     (- operand x)))))
-(macroexpand '(cond/j (< x 3) (* 3 (** x 2))
+(macroexpand '(cond/l (< x 3) (* 3 (** x 2))
                       (< x 5) (* -4 x)
                       (* 5 x)))
 

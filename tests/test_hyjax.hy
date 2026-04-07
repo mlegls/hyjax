@@ -3,7 +3,7 @@
              grad
              random])
 
-(require hyjax [defn/j mapv if/j cond/j])
+(require hyjax [defn/j mapv if/l cond/l])
 
 ;;; defn/j — basic jit
 
@@ -40,10 +40,10 @@
           out (mapv apply-mat batch)]
       (assert (jnp.allclose out batch)))))
 
-;;; if/j — compiles to lax.cond
+;;; if/l — compiles to lax.cond
 
 (defn/j branch [x]
-  (if/j (< x 3)
+  (if/l (< x 3)
         (* 3 (** x 2))
         (* -4 x)))
 
@@ -53,11 +53,11 @@
 (defn test-if-j-false-branch []
   (assert (= (int (branch (jnp.array 5))) -20)))
 
-;;; nested if/j
+;;; nested if/l
 
 (defn/j nested [x]
-  (if/j (< x 3) (* 3 (** x 2))
-        (if/j (< x 5) (* -4 x)
+  (if/l (< x 3) (* 3 (** x 2))
+        (if/l (< x 5) (* -4 x)
               (* 5 x))))
 
 (defn test-nested-if-j []
@@ -65,10 +65,10 @@
   (assert (= (int (nested (jnp.array 4))) -16))
   (assert (= (int (nested (jnp.array 10))) 50)))
 
-;;; cond/j — multi-branch lax.cond
+;;; cond/l — multi-branch lax.cond
 
 (defn/j piecewise [x]
-  (cond/j
+  (cond/l
     (< x 3) (* 3 (** x 2))
     (< x 5) (* -4 x)
     (* 5 x)))
