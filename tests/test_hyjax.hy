@@ -3,7 +3,9 @@
              grad
              random])
 
-(require hyjax [defn/j mapv if/l cond/l while/l fori/l while/lp fori/lp])
+(require hyjax [defn/j mapv if/l cond/l while/l fori/l while/lp fori/lp
+                scan/l scan/lp case/l ascan/l mapl mapt
+                jvp/l vjp/l with-keys])
 
 ;;; defn/j — basic jit
 
@@ -177,6 +179,134 @@
 
 (defn test-fori-lp-multi-state []
   (assert (= (int (fib-explicit 10)) 55)))
+
+;;; scan/l — lax.scan wrapper
+
+(defn/j cumsum-scan [xs]
+  (setv acc (jnp.int32 0))
+  (get (scan/l [acc] [x xs] #((+ acc x) (+ acc x))) 1))
+
+(defn test-scan-l-cumsum []
+  (let [xs (jnp.array [1 2 3 4 5])
+        out (cumsum-scan xs)]
+    (assert (jnp.array_equal out (jnp.array [1 3 6 10 15])))))
+
+(defn/j scan-fib [dummy]
+  ;; stacked Fibonacci sequence via multi-carry scan. `dummy` sets
+  ;; the scan length via its leading axis.
+  (setv a (jnp.int32 0))
+  (setv b (jnp.int32 1))
+  (get (scan/l [a b] [_ dummy] #(#(b (+ a b)) a)) 1))
+
+(defn test-scan-l-multi-carry []
+  (assert (jnp.array_equal (scan-fib (jnp.zeros 8))
+                           (jnp.array [0 1 1 2 3 5 8 13]))))
+
+(defn/j scan-lp-sum [xs]
+  (get (scan/lp [acc (jnp.int32 0)] [x xs] #((+ acc x) (+ acc x))) 0))
+
+(defn test-scan-lp []
+  (assert (= (int (scan-lp-sum (jnp.array [1 2 3 4 5]))) 15)))
+
+;;; case/l — lax.switch wrapper
+
+(defn/j dispatch [idx x]
+  (case/l idx
+          (* x 2)
+          (+ x 10)
+          (- x)))
+
+(defn test-case-l []
+  (assert (= (int (dispatch 0 (jnp.array 5))) 10))
+  (assert (= (int (dispatch 1 (jnp.array 5))) 15))
+  (assert (= (int (dispatch 2 (jnp.array 5))) -5)))
+
+;;; ascan/l — lax.associative_scan wrapper
+
+(defn/j prefix-sums [xs]
+  (ascan/l (fn [a b] (+ a b)) xs))
+
+(defn test-ascan-l []
+  (assert (jnp.array_equal (prefix-sums (jnp.array [1 2 3 4]))
+                           (jnp.array [1 3 6 10]))))
+
+;;; mapl — lax.map wrapper (sequential)
+
+(defn/j square-each [xs]
+  (mapl (fn [x] (* x x)) xs))
+
+(defn test-mapl []
+  (assert (jnp.array_equal (square-each (jnp.array [1 2 3 4]))
+                           (jnp.array [1 4 9 16]))))
+
+;;; mapt — jax.tree.map wrapper
+
+(defn test-mapt-single-tree []
+  (let [tree {"a" (jnp.array [1 2]) "b" (jnp.array [3 4])}
+        out (mapt (fn [x] (* x 10)) tree)]
+    (assert (jnp.array_equal (get out "a") (jnp.array [10 20])))
+    (assert (jnp.array_equal (get out "b") (jnp.array [30 40])))))
+
+(defn test-mapt-multi-tree []
+  ;; gradient-descent-style update over parameter pytree
+  (let [params {"w" (jnp.array 1.0) "b" (jnp.array 2.0)}
+        grads  {"w" (jnp.array 0.1) "b" (jnp.array 0.2)}
+        lr 0.5
+        updated (mapt (fn [p g] (- p (* lr g))) params grads)]
+    (assert (jnp.allclose (get updated "w") 0.95))
+    (assert (jnp.allclose (get updated "b") 1.9))))
+
+;;; jvp/l and vjp/l — autodiff pairs
+
+(defn test-jvp-l []
+  ;; f(x) = x^2; f'(x) = 2x; at x=3, dx=1 -> dy = 6
+  (let [[y dy] (jvp/l [(jnp.float32 3.0)] [(jnp.float32 1.0)]
+                      (fn [a] (* a a)))]
+    (assert (jnp.allclose y 9.0))
+    (assert (jnp.allclose dy 6.0))))
+
+(defn test-jvp-l-multi-primal []
+  ;; f(a, b) = a*b; df = b*da + a*db; at (3,4), (1,1) -> 7
+  (let [[y dy] (jvp/l [(jnp.float32 3.0) (jnp.float32 4.0)]
+                      [(jnp.float32 1.0) (jnp.float32 1.0)]
+                      (fn [a b] (* a b)))]
+    (assert (jnp.allclose y 12.0))
+    (assert (jnp.allclose dy 7.0))))
+
+(defn test-vjp-l []
+  ;; f(x) = x^3; f'(x) = 3x^2; at x=2 -> grad = 12
+  (let [[y vjp-fn] (vjp/l [(jnp.float32 2.0)] (fn [a] (* a (* a a))))
+        [dx] (vjp-fn (jnp.float32 1.0))]
+    (assert (jnp.allclose y 8.0))
+    (assert (jnp.allclose dx 12.0))))
+
+(defn test-vjp-l-multi-primal []
+  ;; f(a, b) = a^2 + b^2; gradients are (2a, 2b); at (3,4) -> (6, 8)
+  (let [[y vjp-fn] (vjp/l [(jnp.float32 3.0) (jnp.float32 4.0)]
+                          (fn [a b] (+ (* a a) (* b b))))
+        [da db] (vjp-fn (jnp.float32 1.0))]
+    (assert (jnp.allclose y 25.0))
+    (assert (jnp.allclose da 6.0))
+    (assert (jnp.allclose db 8.0))))
+
+;;; with-keys — PRNG split sugar
+
+(defn test-with-keys []
+  (import jax [random])
+  (setv key (random.PRNGKey 0))
+  (setv orig-key key)
+  (with-keys key [k1 k2 k3]
+    (setv x (random.normal k1 #(4)))
+    (setv y (random.normal k2 #(4)))
+    (setv z (random.normal k3 #(4))))
+  ;; key should have been consumed/advanced
+  (assert (not (jnp.array_equal key orig-key)))
+  ;; sub-keys must all be distinct
+  (assert (not (jnp.array_equal k1 k2)))
+  (assert (not (jnp.array_equal k2 k3)))
+  (assert (not (jnp.array_equal k1 k3)))
+  ;; generated samples should be different draws
+  (assert (not (jnp.allclose x y))))
 
 ;;; defn/j composes with jax.grad
 

@@ -227,3 +227,175 @@
            ~lower ~upper
            (fn [~i-sym ~param] (setv [~@names] ~param) ~body-expr)
            #(~@names))))))
+
+;;; lax.scan bindings
+
+(defmacro scan/lp [state-binding iter-binding body-expr]
+  "Explicit-binding lax.scan wrapper. Lower-level form of scan/l.
+
+  `state-binding` is [pattern init] for the carry; `iter-binding` is
+  [x xs] where xs is the stacked input. The body evaluates to a
+  #(new-carry y) pair, and scan/lp returns #(final-carry stacked-ys).
+
+      (scan/lp [acc (jnp.int32 0)]
+               [x xs]
+               #((+ acc x) (+ acc x)))
+  "
+  (when (!= (len state-binding) 2)
+    (raise (ValueError "scan/lp state binding must be [pattern init]")))
+  (when (!= (len iter-binding) 2)
+    (raise (ValueError "scan/lp iter binding must be [x xs]")))
+  (let [pattern (get state-binding 0)
+        init    (get state-binding 1)
+        x-sym   (get iter-binding 0)
+        xs-expr (get iter-binding 1)
+        carry   (hy.gensym "carry")]
+    `(hy.I.jax.lax.scan
+       (fn [~carry ~x-sym]
+         (setv ~pattern ~carry)
+         ~body-expr)
+       ~init
+       ~xs-expr)))
+
+(defmacro scan/l [carry iter-binding body-expr]
+  "lax.scan wrapper with auto-init from the enclosing scope.
+
+  `carry` lists the state variable *names*; their initial values come
+  from the enclosing scope. `iter-binding` is [x xs] where xs is the
+  stacked input. The body evaluates to a #(new-carry y) pair.
+  scan/l returns #(final-carry stacked-ys).
+
+      ; cumulative sum
+      (setv acc (jnp.int32 0))
+      (setv [final sums]
+            (scan/l [acc] [x xs] #((+ acc x) (+ acc x))))
+
+      ; Fibonacci sequence
+      (setv a (jnp.int32 0)  b (jnp.int32 1))
+      (setv [_ seq]
+            (scan/l [a b] [x (jnp.arange n)] #(#(b (+ a b)) a)))
+  "
+  (_check-carry-names carry "scan/l")
+  (when (!= (len iter-binding) 2)
+    (raise (ValueError "scan/l iter binding must be [x xs]")))
+  (let [names (list carry)
+        x-sym   (get iter-binding 0)
+        xs-expr (get iter-binding 1)
+        param   (hy.gensym "carry")]
+    (if (= (len names) 1)
+      (let [n (get names 0)]
+        `(hy.I.jax.lax.scan
+           (fn [~param ~x-sym] (setv ~n ~param) ~body-expr)
+           ~n
+           ~xs-expr))
+      `(hy.I.jax.lax.scan
+         (fn [~param ~x-sym] (setv [~@names] ~param) ~body-expr)
+         #(~@names)
+         ~xs-expr))))
+
+;;; lax.switch binding
+
+(defmacro case/l [idx #* branches]
+  "lax.switch wrapper with auto-detected captured bindings.
+
+  Like cond/l but branches are selected by an integer index rather
+  than predicates. Free symbols in idx and the branch expressions are
+  auto-detected and closed over.
+
+      (case/l idx
+              (* x 2)      ; branch 0
+              (+ x 1)      ; branch 1
+              (- x 1))     ; branch 2
+  "
+  (when (= (len branches) 0)
+    (raise (ValueError "case/l requires at least one branch")))
+  (let [bindings (unique (reduce + (map find-symbols (+ [idx] (list branches)))))
+        branch-fns (lfor b branches (fn-with-bindings bindings b))]
+    `(hy.I.jax.lax.switch ~idx [~@branch-fns] ~bindings)))
+
+;;; lax.associative_scan and lax.map
+
+(defmacro ascan/l [f xs #* rest]
+  "lax.associative_scan wrapper. `f` must be a binary associative fn.
+
+      (ascan/l + xs)                  ; prefix sums
+      (ascan/l + xs :reverse True)    ; extra kwargs are spliced through
+  "
+  `(hy.I.jax.lax.associative_scan ~f ~xs ~@rest))
+
+(defmacro mapl [f xs]
+  "lax.map wrapper: sequential map (vs mapv which is parallel vmap).
+
+      (mapl f xs)
+  "
+  `(hy.I.jax.lax.map ~f ~xs))
+
+;;; jax.tree.map binding
+
+(defmacro mapt [f #* trees]
+  "jax.tree.map wrapper: map `f` over the leaves of one or more
+  pytrees (corresponding leaves when multiple trees are given).
+
+      (mapt (fn [p g] (- p (* lr g))) params grads)
+  "
+  `(hy.I.jax.tree.map ~f ~@trees))
+
+;;; jax.jvp and jax.vjp bindings
+
+(defmacro jvp/l [primals tangents f]
+  "jax.jvp wrapper.
+
+  `primals` and `tangents` are bracketed lists of expressions that
+  become the positional primal and tangent tuples passed to jax.jvp.
+  `f` is a function of the same arity. Returns #(primal-out tangent-out).
+
+      (setv [y dy] (jvp/l [x] [1.0] (fn [a] (* a a))))
+  "
+  (when (not (isinstance primals HyList))
+    (raise (ValueError "jvp/l primals must be a [expr ...] list")))
+  (when (not (isinstance tangents HyList))
+    (raise (ValueError "jvp/l tangents must be a [expr ...] list")))
+  (when (!= (len primals) (len tangents))
+    (raise (ValueError "jvp/l primals and tangents must have the same length")))
+  `(hy.I.jax.jvp ~f #(~@primals) #(~@tangents)))
+
+(defmacro vjp/l [primals f]
+  "jax.vjp wrapper.
+
+  `primals` is a bracketed list of expressions passed as the
+  positional primal arguments to `f`. Returns #(output vjp-fn); call
+  vjp-fn on a cotangent to get a tuple of cotangents w.r.t. primals.
+
+      (setv [y vjp-fn] (vjp/l [x] (fn [a] (* a a))))
+      (setv [dx] (vjp-fn 1.0))
+  "
+  (when (not (isinstance primals HyList))
+    (raise (ValueError "vjp/l primals must be a [expr ...] list")))
+  `(hy.I.jax.vjp ~f ~@primals))
+
+;;; PRNG key splitting sugar
+
+(defmacro with-keys [key subs #* body]
+  "Split `key` into fresh sub-keys and rebind.
+
+  Produces a setv that consumes `key`, rebinds it to the first slot
+  of the split, and binds each name in `subs` to the subsequent
+  slots. The rebinding escapes into the enclosing scope (matching
+  how Python JAX code threads keys) so subsequent code sees the
+  advanced key.
+
+      (setv key (jax.random.PRNGKey 0))
+      (with-keys key [k1 k2 k3]
+        (setv x (jax.random.normal k1 #(4)))
+        (setv y (jax.random.normal k2 #(4)))
+        (setv z (jax.random.normal k3 #(4))))
+  "
+  (when (not (isinstance subs HyList))
+    (raise (ValueError "with-keys sub-key list must be a [name ...] list")))
+  (for [n subs]
+    (when (not (isinstance n Symbol))
+      (raise (ValueError "with-keys sub-key names must be plain symbols"))))
+  (let [n (+ 1 (len subs))]
+    `(do
+       (setv [~key ~@subs] (hy.I.jax.random.split ~key ~n))
+       ~@body)))

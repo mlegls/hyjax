@@ -68,12 +68,56 @@ Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.i
   (setv [a b] (fori/l [a b] [i (range n)] #(b (+ a b))))
   ```
 - [x] `(while/lp [pattern init] cond body-expr)` and
-  `(fori/lp [i lo hi] [pattern init] body-expr)` — explicit-binding
+  `(fori/lp [pattern init] [i lo hi] body-expr)` — explicit-binding
   ("lax pure") forms of the loops. Use these when you want full
   control over what's in the carry, e.g. to keep loop-local
-  temporaries out of it, or when the body is more naturally an
-  expression that returns the new state than a sequence of `(setv
-  ...)` statements.
+  temporaries out of it, or when you want to initialize with a
+  different expression than a same-named outer binding.
+- [x] `(scan/l [carry...] [x xs] body-expr)` as `lax.scan`. Body
+  evaluates to a `#(new-carry y)` pair; the form returns
+  `#(final-carry stacked-ys)`. Same carry-from-scope convention as
+  `while/l` / `fori/l`. `scan/lp` is the explicit `[pattern init]`
+  variant.
+  ```hy
+  ; cumulative sum
+  (setv acc 0)
+  (setv [final sums]
+        (scan/l [acc] [x xs] #((+ acc x) (+ acc x))))
+  ```
+- [x] `(case/l idx expr0 expr1 ...)` as `lax.switch`. Like `cond/l`
+  but branches are selected by integer index; free symbols are
+  auto-detected and closed over.
+- [x] `(ascan/l f xs)` as `lax.associative_scan`. Extra kwargs are
+  spliced through: `(ascan/l + xs :reverse True)`.
+- [x] `(mapl f xs)` as `lax.map` (sequential), complementing `mapv`
+  which is `jax.vmap`.
+- [x] `(mapt f tree ...)` as `jax.tree.map`. Accepts multiple
+  pytrees for co-map.
+  ```hy
+  (mapt (fn [p g] (- p (* lr g))) params grads)
+  ```
+- [x] `(jvp/l [primals] [tangents] f)` as `jax.jvp`. Returns
+  `#(primal-out tangent-out)`.
+  ```hy
+  (setv [y dy] (jvp/l [(jnp.float32 3.0)] [(jnp.float32 1.0)]
+                      (fn [a] (* a a))))
+  ```
+- [x] `(vjp/l [primals] f)` as `jax.vjp`. Returns `#(output vjp-fn)`.
+  ```hy
+  (setv [y vjp-fn] (vjp/l [x] (fn [a] (* a a a))))
+  (setv [dx]       (vjp-fn 1.0))
+  ```
+- [x] `(with-keys key [k1 k2 k3] body)` — PRNG key-splitting sugar.
+  Consumes `key`, rebinds it to `split(key, 4)[0]`, and binds `k1`,
+  `k2`, `k3` to the remaining slots. The rebinding escapes into the
+  enclosing scope so subsequent code sees the advanced key (matches
+  how Python JAX code threads keys).
+  ```hy
+  (setv key (jax.random.PRNGKey 0))
+  (with-keys key [k1 k2]
+    (setv x (jax.random.normal k1 #(4)))
+    (setv y (jax.random.normal k2 #(4))))
+  ```
 
 ### Naming convention
 
@@ -89,5 +133,4 @@ Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.i
   initial values (`[name init]`). Use these when the `/l` sugar is
   inconvenient — e.g. initializing with a different expression than
   a same-named outer binding.
-- [ ] binding for `lax.while_loop`
-- [ ] binding for `lax.fori_loop`
+
