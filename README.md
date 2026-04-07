@@ -56,11 +56,16 @@ Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.i
   (setv a 0  b 1)
   (setv [a b] (while/l [a b] (< a 100) #(b (+ a b))))
   ```
-- [x] `(fori/l [i (range ...)] [carry...] body-expr)` as
-  `lax.fori_loop`, same style.
+- [x] `(fori/l [carry...] [i (range ...)] body-expr)` as
+  `lax.fori_loop`, same style. Bindings-first ordering matches
+  Clojure's `loop` and CL `do` — the state carry leads, and the
+  iteration descriptor follows.
   ```hy
   (setv acc 0)
-  (setv acc (fori/l [i (range n)] [acc] (+ acc i)))
+  (setv acc (fori/l [acc] [i (range n)] (+ acc i)))
+
+  (setv a 0  b 1)
+  (setv [a b] (fori/l [a b] [i (range n)] #(b (+ a b))))
   ```
 - [x] `(while/lp [pattern init] cond body-expr)` and
   `(fori/lp [i lo hi] [pattern init] body-expr)` — explicit-binding

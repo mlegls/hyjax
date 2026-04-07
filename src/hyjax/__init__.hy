@@ -107,24 +107,27 @@
        (fn [~carry] (setv ~pattern ~carry) ~body-expr)
        ~init)))
 
-(defmacro fori/lp [index-binding state-binding body-expr]
+(defmacro fori/lp [state-binding index-binding body-expr]
   "Explicit-binding lax.fori_loop wrapper. Lower-level form of fori/l.
 
-      (fori/lp [i 0 n]    ; index name, lower, upper
-               [acc 0]    ; carried state
+  Bindings-first ordering: carry state leads, iteration descriptor
+  follows.
+
+      (fori/lp [acc 0]    ; carried state: pattern + init
+               [i 0 n]    ; index name, lower, upper
                (+ acc i))
 
   Like while/lp, the state pattern may destructure a tuple.
   "
-  (when (!= (len index-binding) 3)
-    (raise (ValueError "fori/lp index binding must be [i lower upper]")))
   (when (!= (len state-binding) 2)
     (raise (ValueError "fori/lp state binding must be [pattern init]")))
-  (let [i       (get index-binding 0)
+  (when (!= (len index-binding) 3)
+    (raise (ValueError "fori/lp index binding must be [i lower upper]")))
+  (let [pattern (get state-binding 0)
+        init    (get state-binding 1)
+        i       (get index-binding 0)
         lower   (get index-binding 1)
         upper   (get index-binding 2)
-        pattern (get state-binding 0)
-        init    (get state-binding 1)
         carry   (hy.gensym "carry")]
     `(hy.I.jax.lax.fori_loop
        ~lower ~upper
@@ -172,22 +175,27 @@
          (fn [~param] (setv [~@names] ~param) ~body-expr)
          #(~@names)))))
 
-(defmacro fori/l [index-binding carry body-expr]
+(defmacro fori/l [carry index-binding body-expr]
   "lax.fori_loop wrapper with auto-init from the enclosing scope.
 
-  The iterable is a literal (range ...) form:
-  (range n) iterates 0..n, (range lo hi) iterates lo..hi.
-  `carry` is an explicit list of state variable names (see `while/l`).
+  `carry` is an explicit list of state variable *names* (same as
+  `while/l`); their initial values come from the enclosing scope.
+  `index-binding` is `[i (range ...)]` where the iterable is a
+  literal (range n) or (range lo hi).
+
+  Bindings-first ordering matches Clojure's `loop` and CL `do`: the
+  state carry is what the body produces a new version of, and the
+  iteration descriptor is secondary.
 
       (setv acc 0)
-      (setv acc (fori/l [i (range n)] [acc] (+ acc i)))
+      (setv acc (fori/l [acc] [i (range n)] (+ acc i)))
 
       (setv a 0  b 1)
-      (setv [a b] (fori/l [i (range n)] [a b] #(b (+ a b))))
+      (setv [a b] (fori/l [a b] [i (range n)] #(b (+ a b))))
   "
+  (_check-carry-names carry "fori/l")
   (when (!= (len index-binding) 2)
     (raise (ValueError "fori/l index binding must be [i (range ...)]")))
-  (_check-carry-names carry "fori/l")
   (let [i-sym      (get index-binding 0)
         range-expr (get index-binding 1)]
     (when (not (and (isinstance range-expr Expression)

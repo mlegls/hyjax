@@ -112,7 +112,7 @@
 
 (defn/j sum-range [n]
   (setv acc (jnp.int32 0))
-  (fori/l [i (range n)] [acc] (+ acc i)))
+  (fori/l [acc] [i (range n)] (+ acc i)))
 
 (defn test-fori-l-sum []
   ;; sum of 0..9 = 45
@@ -121,7 +121,7 @@
 
 (defn/j factorial [n]
   (setv acc (jnp.int32 1))
-  (fori/l [i (range 1 (+ n 1))] [acc] (* acc i)))
+  (fori/l [acc] [i (range 1 (+ n 1))] (* acc i)))
 
 (defn test-fori-l-factorial []
   (assert (= (int (factorial 5)) 120))
@@ -131,7 +131,7 @@
   ;; Fibonacci: carry (a, b); new state is #(b (+ a b)).
   (setv a (jnp.int32 0))
   (setv b (jnp.int32 1))
-  (get (fori/l [i (range n)] [a b] #(b (+ a b))) 0))
+  (get (fori/l [a b] [i (range n)] #(b (+ a b))) 0))
 
 (defn test-fori-l-multi-state []
   (assert (= (int (fib 0)) 0))
@@ -163,7 +163,7 @@
   (assert (= (int (collatz-explicit (jnp.array 27))) 111)))
 
 (defn/j sum-range-explicit [n]
-  (fori/lp [i 0 n] [acc (jnp.int32 0)]
+  (fori/lp [acc (jnp.int32 0)] [i 0 n]
          (+ acc i)))
 
 (defn test-fori-lp-sum []
@@ -171,7 +171,7 @@
 
 (defn/j fib-explicit [n]
   (let [result
-        (fori/lp [i 0 n] [[a b] #((jnp.int32 0) (jnp.int32 1))]
+        (fori/lp [[a b] #((jnp.int32 0) (jnp.int32 1))] [i 0 n]
                #(b (+ a b)))]
     (get result 0)))
 
