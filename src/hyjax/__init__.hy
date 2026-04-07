@@ -9,87 +9,6 @@
 
 ;;; Helper functions & macros
 
-(setv _opaque-scope-heads
-  ;; Heads whose bodies we don't walk at all: nested function/macro
-  ;; definitions and comprehensions. Their internal setvs never mutate
-  ;; carry state from the enclosing loop.
-  #{"fn" "fn/a" "defn" "defn/a" "defn/j" "defmacro"
-    "lfor" "sfor" "dfor" "gfor"})
-
-(defn _pattern-names [target]
-  "Yield the Symbols appearing as names in a (setv ...) / let target."
-  (cond
-    (isinstance target Symbol) [target]
-    (isinstance target HyList) (lfor x target
-                                     :if (isinstance x Symbol)
-                                     x)
-    True []))
-
-(defn _collect-setv-targets [form]
-  "Walk `form` and return the symbols that appear as (setv ...) targets
-  and refer to bindings in the *enclosing* scope.
-
-  Descends into `let` and `for` while tracking their local names so
-  those aren't mis-classified as carry state. Fully skips nested
-  fn/defn/comprehension bodies. Handles destructuring targets like
-  (setv [a b] expr).
-  "
-  (let [targets []
-        seen    (set)]
-    (defn add! [sym]
-      (let [s (str sym)]
-        (when (not-in s seen)
-          (.add seen s)
-          (.append targets sym))))
-    (defn visit [node locals]
-      (when (and (isinstance node Expression) (> (len node) 0))
-        (let [head (get node 0)
-              head-name (if (isinstance head Symbol) (str head) None)]
-          (cond
-            ;; setv: collect targets not shadowed by a local, then walk values.
-            (= head-name "setv")
-            (do
-              (for [i (range 1 (len node) 2)]
-                (for [name (_pattern-names (get node i))]
-                  (when (not-in (str name) locals)
-                    (add! name))))
-              (for [i (range 2 (len node) 2)]
-                (visit (get node i) locals)))
-
-            ;; let: bindings are [name expr name expr ...]; names become
-            ;; local to the body, but value exprs see the outer locals.
-            (= head-name "let")
-            (let [bindings  (get node 1)
-                  new-local (set locals)]
-              (for [i (range 0 (len bindings) 2)]
-                (for [name (_pattern-names (get bindings i))]
-                  (.add new-local (str name))))
-              (for [i (range 1 (len bindings) 2)]
-                (visit (get bindings i) locals))
-              (for [child (cut node 2 None)]
-                (visit child new-local)))
-
-            ;; for: (for [x iter ...] body); loop vars are local to body.
-            (= head-name "for")
-            (let [bindings  (get node 1)
-                  new-local (set locals)]
-              (for [i (range 0 (len bindings) 2)]
-                (for [name (_pattern-names (get bindings i))]
-                  (.add new-local (str name))))
-              (for [i (range 1 (len bindings) 2)]
-                (visit (get bindings i) locals))
-              (for [child (cut node 2 None)]
-                (visit child new-local)))
-
-            ;; Opaque scopes: skip entirely.
-            (in head-name _opaque-scope-heads)
-            None
-
-            True
-            (for [child node] (visit child locals))))))
-    (visit form (set))
-    targets))
-
 (defn find-symbols [expr]
   (match expr
     [] []
@@ -212,65 +131,73 @@
        (fn [~i ~carry] (setv ~pattern ~carry) ~body-expr)
        ~init)))
 
-(defmacro while/l [cond-expr #* body]
-  "lax.while_loop wrapper with natural while-like syntax.
+(defn _check-carry-names [carry ctx]
+  (when (or (not (isinstance carry HyList)) (= (len carry) 0))
+    (raise (ValueError (+ ctx " carry must be a non-empty [name ...] list"))))
+  (for [n carry]
+    (when (not (isinstance n Symbol))
+      (raise (ValueError (+ ctx " carry names must be plain symbols"))))))
 
-  Variables assigned with (setv ...) inside the body are detected
-  automatically and carried as the loop state. They must already be
-  bound in the enclosing scope; their final values are written back
-  after the loop exits.
+(defmacro while/l [carry cond-expr body-expr]
+  "lax.while_loop wrapper with auto-init from the enclosing scope.
+
+  `carry` is an explicit list of state variable *names*; each name
+  must already be bound in the surrounding scope, and those values
+  become the loop's initial state. `cond-expr` and `body-expr` are
+  evaluated with those names destructured from the carry; `body-expr`
+  is a single expression that evaluates to the new carry.
 
       (setv v 0)
-      (while/l (< v 10)
-        (setv v (+ v 1)))
-      ; v is now 10
-
-  For simultaneous updates, use destructuring assignment:
+      (setv v (while/l [v] (< v 10) (+ v 1)))   ; single-state
 
       (setv a 0  b 1)
-      (while/l (< a 100)
-        (setv [a b] #(b (+ a b))))
+      (setv [a b] (while/l [a b]                 ; multi-state
+                           (< a 100)
+                           #(b (+ a b))))
+
+  With one carry name, the init and body are scalars; with N > 1,
+  they are N-tuples in the declared order.
   "
-  (let [carry-syms (_collect-setv-targets `(do ~@body))
-        carry      (hy.gensym "carry")]
-    (when (= (len carry-syms) 0)
-      (raise (ValueError
-               "while/l body must assign to at least one variable via (setv ...)")))
-    `(setv [~@carry-syms]
-           (hy.I.jax.lax.while_loop
-             (fn [~carry]
-               (setv [~@carry-syms] ~carry)
-               ~cond-expr)
-             (fn [~carry]
-               (setv [~@carry-syms] ~carry)
-               ~@body
-               [~@carry-syms])
-             [~@carry-syms]))))
+  (_check-carry-names carry "while/l")
+  (let [names (list carry)
+        param (hy.gensym "carry")]
+    (if (= (len names) 1)
+      (let [n (get names 0)]
+        `(hy.I.jax.lax.while_loop
+           (fn [~param] (setv ~n ~param) ~cond-expr)
+           (fn [~param] (setv ~n ~param) ~body-expr)
+           ~n))
+      `(hy.I.jax.lax.while_loop
+         (fn [~param] (setv [~@names] ~param) ~cond-expr)
+         (fn [~param] (setv [~@names] ~param) ~body-expr)
+         #(~@names)))))
 
-(defmacro fori/l [binding #* body]
-  "lax.fori_loop wrapper with for-like syntax.
+(defmacro fori/l [index-binding carry body-expr]
+  "lax.fori_loop wrapper with auto-init from the enclosing scope.
 
-  The iterable must be a literal (range ...) form; (range n) iterates
-  0..n and (range lo hi) iterates lo..hi. Variables assigned with
-  (setv ...) inside the body become the carried state (same rules as
-  while/l) and must be pre-bound in the enclosing scope.
+  The iterable is a literal (range ...) form:
+  (range n) iterates 0..n, (range lo hi) iterates lo..hi.
+  `carry` is an explicit list of state variable names (see `while/l`).
 
       (setv acc 0)
-      (fori/l [i (range n)]
-        (setv acc (+ acc i)))
+      (setv acc (fori/l [i (range n)] [acc] (+ acc i)))
+
+      (setv a 0  b 1)
+      (setv [a b] (fori/l [i (range n)] [a b] #(b (+ a b))))
   "
-  (when (!= (len binding) 2)
-    (raise (ValueError "fori/l binding must be [i (range ...)]")))
-  (let [i-sym      (get binding 0)
-        range-expr (get binding 1)]
+  (when (!= (len index-binding) 2)
+    (raise (ValueError "fori/l index binding must be [i (range ...)]")))
+  (_check-carry-names carry "fori/l")
+  (let [i-sym      (get index-binding 0)
+        range-expr (get index-binding 1)]
     (when (not (and (isinstance range-expr Expression)
                     (> (len range-expr) 0)
                     (isinstance (get range-expr 0) Symbol)
                     (= (str (get range-expr 0)) "range")))
       (raise (ValueError "fori/l iterable must be a (range ...) form")))
     (let [range-args (cut range-expr 1 None)
-          carry-syms (_collect-setv-targets `(do ~@body))
-          carry      (hy.gensym "carry")
+          names (list carry)
+          param (hy.gensym "carry")
           lower None
           upper None]
       (cond
@@ -282,14 +209,13 @@
         True
         (raise (ValueError
                  "fori/l only supports (range upper) or (range lower upper)")))
-      (when (= (len carry-syms) 0)
-        (raise (ValueError
-                 "fori/l body must assign to at least one variable via (setv ...)")))
-      `(setv [~@carry-syms]
-             (hy.I.jax.lax.fori_loop
-               ~lower ~upper
-               (fn [~i-sym ~carry]
-                 (setv [~@carry-syms] ~carry)
-                 ~@body
-                 [~@carry-syms])
-               [~@carry-syms])))))
+      (if (= (len names) 1)
+        (let [n (get names 0)]
+          `(hy.I.jax.lax.fori_loop
+             ~lower ~upper
+             (fn [~i-sym ~param] (setv ~n ~param) ~body-expr)
+             ~n))
+        `(hy.I.jax.lax.fori_loop
+           ~lower ~upper
+           (fn [~i-sym ~param] (setv [~@names] ~param) ~body-expr)
+           #(~@names))))))

@@ -41,28 +41,26 @@ Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.i
 - [x] `(cond/l pred1 result1 pred2 result2 ... default)` as a chain of `lax.cond`
   - multi-branch form, mirroring Lisp `cond`
 - [x] `(if/lp [bindings] pred then else)` — explicit-binding ("lax pure") form of `if/l`; you list the closed-over symbols yourself instead of relying on auto-detection
-- [x] `(while/l cond body...)` as `lax.while_loop`, with imperative
-  while-syntax. Variables assigned via `(setv ...)` in the body are
-  auto-detected as the loop carry; they must be pre-bound in the
-  enclosing scope. The walker descends through `let` and `for` while
-  ignoring their local bindings, and skips nested `fn`/`defn` bodies.
+- [x] `(while/l [carry...] cond body-expr)` as `lax.while_loop`, in
+  pure-expression style. Carry *names* are listed explicitly and
+  their *initial values* are taken from the enclosing scope. The
+  body is a single expression that evaluates to the new carry (a
+  scalar for one name, an N-tuple for N > 1). The loop form itself
+  returns the final carry.
   ```hy
+  ; single-state
   (setv v 0)
-  (while/l (< v 10)
-    (setv v (+ v 1)))
-  ```
-  For simultaneous updates, use destructuring assignment:
-  ```hy
+  (setv v (while/l [v] (< v 10) (+ v 1)))
+
+  ; multi-state
   (setv a 0  b 1)
-  (while/l (< a 100)
-    (setv [a b] #(b (+ a b))))
+  (setv [a b] (while/l [a b] (< a 100) #(b (+ a b))))
   ```
-- [x] `(fori/l [i (range ...)] body...)` as `lax.fori_loop`, with
-  imperative for-syntax. Same auto-carry rules as `while/l`.
+- [x] `(fori/l [i (range ...)] [carry...] body-expr)` as
+  `lax.fori_loop`, same style.
   ```hy
   (setv acc 0)
-  (fori/l [i (range n)]
-    (setv acc (+ acc i)))
+  (setv acc (fori/l [i (range n)] [acc] (+ acc i)))
   ```
 - [x] `(while/lp [pattern init] cond body-expr)` and
   `(fori/lp [i lo hi] [pattern init] body-expr)` — explicit-binding
@@ -75,12 +73,16 @@ Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.i
 ### Naming convention
 
 - `/j` — **j**it. Currently just `defn/j`.
-- `/l` — **l**ax, in its idiomatic form. Expression-style for
-  `if/l`/`cond/l` (auto-closes over free symbols), statement-style
-  for `while/l`/`fori/l` (auto-detects `(setv ...)` targets as the
-  loop carry).
-- `/lp` — **l**ax **p**ure. Always an expression that returns the
-  new state, with the bindings spelled out explicitly. Lower-level,
-  closer to the underlying `lax.*` primitive.
+- `/l` — **l**ax, in its idiomatic form. Always an expression.
+  For `if/l` / `cond/l`, free symbols in the branches are
+  auto-detected and closed over. For `while/l` / `fori/l`, you list
+  the carry names explicitly and their initial values are pulled
+  from the enclosing scope.
+- `/lp` — **l**ax **p**ure. Lower-level explicit forms: for
+  `if/lp`, you list the closed-over bindings yourself; for
+  `while/lp` / `fori/lp`, you list the carry names *and* their
+  initial values (`[name init]`). Use these when the `/l` sugar is
+  inconvenient — e.g. initializing with a different expression than
+  a same-named outer binding.
 - [ ] binding for `lax.while_loop`
 - [ ] binding for `lax.fori_loop`
