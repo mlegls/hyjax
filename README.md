@@ -1,6 +1,17 @@
 # Hyjax
 
-`pip install hyjax`
+```bash
+uv add hyjax         # or: pip install hyjax
+```
+
+Dev setup:
+
+```bash
+git clone https://github.com/mlegls/hyjax
+cd hyjax
+uv sync
+uv run hy examples/experiments.hy
+```
 
 Hyjax is [Hy](https://github.com/hylang/hy) bindings for [JAX](https://github.com/google/jax). 
 
@@ -18,7 +29,7 @@ The goals are
 1. the name pun was funny
 2. let fully JIT-compiled JAX code be written in idiomatic Lisp
 
-Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.io/en/latest/notebooks/quickstart.html) tutorials are in `src/experiments.hy`. The [Hy](https://docs.hylang.org/en/stable/index.html) and [JAX](https://jax.readthedocs.io/en/latest/) docs might also be helpful.
+Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.io/en/latest/notebooks/quickstart.html) tutorials are in `examples/experiments.hy`. The [Hy](https://docs.hylang.org/en/stable/index.html) and [JAX](https://jax.readthedocs.io/en/latest/) docs might also be helpful.
 
 ## Features
 - [x] `(mapv f vec)` as `vmap(f)(vec)`

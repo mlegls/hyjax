@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "hyjax"
-version = "0.0.1"
+version = "0.1.0"
 authors = [
   { name = "疒奀", email = "yz@mmon.co" },
 ]
@@ -17,7 +17,24 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+    "hy>=1.0.0",
+    "hyrule>=1.0.0",
+    "jax>=0.4.30",
+]
+
+[project.optional-dependencies]
+dev = []
 
 [project.urls]
-"Homepage" = "https://github.com/mlegls/hyjax"
+Homepage = "https://github.com/mlegls/hyjax"
 "Bug Tracker" = "https://github.com/mlegls/hyjax/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hyjax"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/hyjax/__init__.hy" = "hyjax/__init__.hy"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/hyjax", "examples", "README.md", "LICENSE"]

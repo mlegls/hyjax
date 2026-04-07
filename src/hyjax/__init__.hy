@@ -9,7 +9,7 @@
                    Expression
                    Symbol])
 
-(require hyrule [with-gensyms smacrolet])
+
 
 ;;; Helper functions & macros
 
@@ -25,9 +25,9 @@
 (defn unique [lst] (list (set lst)))
 
 (defn fn-with-bindings [bindings #* body]
-  (with-gensyms [binding-list]
-    `(fn [binding-list]
-       (let [~bindings binding-list]
+  (let [binding-list (hy.gensym "binding-list")]
+    `(fn [~binding-list]
+       (let [~bindings ~binding-list]
          ~@body))))
 
 (defmacro lcond [bindings pred true-case false-case]

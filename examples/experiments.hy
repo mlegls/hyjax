@@ -10,8 +10,7 @@
                    Expression
                    Symbol])
 
-(require hyrule [with-gensyms smacrolet]
-         hyjax [defn/j mapv lcond if/j cond/j])
+(require hyjax [defn/j mapv lcond if/j cond/j])
 
 ;;; Experiments
 
