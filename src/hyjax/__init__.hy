@@ -340,39 +340,6 @@
   "
   `(hy.I.jax.tree.map ~f ~@trees))
 
-;;; jax.jvp and jax.vjp bindings
-
-(defmacro jvp/l [primals tangents f]
-  "jax.jvp wrapper.
-
-  `primals` and `tangents` are bracketed lists of expressions that
-  become the positional primal and tangent tuples passed to jax.jvp.
-  `f` is a function of the same arity. Returns #(primal-out tangent-out).
-
-      (setv [y dy] (jvp/l [x] [1.0] (fn [a] (* a a))))
-  "
-  (when (not (isinstance primals HyList))
-    (raise (ValueError "jvp/l primals must be a [expr ...] list")))
-  (when (not (isinstance tangents HyList))
-    (raise (ValueError "jvp/l tangents must be a [expr ...] list")))
-  (when (!= (len primals) (len tangents))
-    (raise (ValueError "jvp/l primals and tangents must have the same length")))
-  `(hy.I.jax.jvp ~f #(~@primals) #(~@tangents)))
-
-(defmacro vjp/l [primals f]
-  "jax.vjp wrapper.
-
-  `primals` is a bracketed list of expressions passed as the
-  positional primal arguments to `f`. Returns #(output vjp-fn); call
-  vjp-fn on a cotangent to get a tuple of cotangents w.r.t. primals.
-
-      (setv [y vjp-fn] (vjp/l [x] (fn [a] (* a a))))
-      (setv [dx] (vjp-fn 1.0))
-  "
-  (when (not (isinstance primals HyList))
-    (raise (ValueError "vjp/l primals must be a [expr ...] list")))
-  `(hy.I.jax.vjp ~f ~@primals))
-
 ;;; PRNG key splitting sugar
 
 (defmacro with-keys [key subs #* body]

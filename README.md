@@ -96,17 +96,6 @@ Some examples loosely inspired by the [JAX Quickstart](https://jax.readthedocs.i
   ```hy
   (mapt (fn [p g] (- p (* lr g))) params grads)
   ```
-- [x] `(jvp/l [primals] [tangents] f)` as `jax.jvp`. Returns
-  `#(primal-out tangent-out)`.
-  ```hy
-  (setv [y dy] (jvp/l [(jnp.float32 3.0)] [(jnp.float32 1.0)]
-                      (fn [a] (* a a))))
-  ```
-- [x] `(vjp/l [primals] f)` as `jax.vjp`. Returns `#(output vjp-fn)`.
-  ```hy
-  (setv [y vjp-fn] (vjp/l [x] (fn [a] (* a a a))))
-  (setv [dx]       (vjp-fn 1.0))
-  ```
 - [x] `(with-keys key [k1 k2 k3] body)` — PRNG key-splitting sugar.
   Consumes `key`, rebinds it to `split(key, 4)[0]`, and binds `k1`,
   `k2`, `k3` to the remaining slots. The rebinding escapes into the

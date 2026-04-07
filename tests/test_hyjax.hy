@@ -4,8 +4,7 @@
              random])
 
 (require hyjax [defn/j mapv if/l cond/l while/l fori/l while/lp fori/lp
-                scan/l scan/lp case/l ascan/l mapl mapt
-                jvp/l vjp/l with-keys])
+                scan/l scan/lp case/l ascan/l mapl mapt with-keys])
 
 ;;; defn/j — basic jit
 
@@ -255,39 +254,6 @@
         updated (mapt (fn [p g] (- p (* lr g))) params grads)]
     (assert (jnp.allclose (get updated "w") 0.95))
     (assert (jnp.allclose (get updated "b") 1.9))))
-
-;;; jvp/l and vjp/l — autodiff pairs
-
-(defn test-jvp-l []
-  ;; f(x) = x^2; f'(x) = 2x; at x=3, dx=1 -> dy = 6
-  (let [[y dy] (jvp/l [(jnp.float32 3.0)] [(jnp.float32 1.0)]
-                      (fn [a] (* a a)))]
-    (assert (jnp.allclose y 9.0))
-    (assert (jnp.allclose dy 6.0))))
-
-(defn test-jvp-l-multi-primal []
-  ;; f(a, b) = a*b; df = b*da + a*db; at (3,4), (1,1) -> 7
-  (let [[y dy] (jvp/l [(jnp.float32 3.0) (jnp.float32 4.0)]
-                      [(jnp.float32 1.0) (jnp.float32 1.0)]
-                      (fn [a b] (* a b)))]
-    (assert (jnp.allclose y 12.0))
-    (assert (jnp.allclose dy 7.0))))
-
-(defn test-vjp-l []
-  ;; f(x) = x^3; f'(x) = 3x^2; at x=2 -> grad = 12
-  (let [[y vjp-fn] (vjp/l [(jnp.float32 2.0)] (fn [a] (* a (* a a))))
-        [dx] (vjp-fn (jnp.float32 1.0))]
-    (assert (jnp.allclose y 8.0))
-    (assert (jnp.allclose dx 12.0))))
-
-(defn test-vjp-l-multi-primal []
-  ;; f(a, b) = a^2 + b^2; gradients are (2a, 2b); at (3,4) -> (6, 8)
-  (let [[y vjp-fn] (vjp/l [(jnp.float32 3.0) (jnp.float32 4.0)]
-                          (fn [a b] (+ (* a a) (* b b))))
-        [da db] (vjp-fn (jnp.float32 1.0))]
-    (assert (jnp.allclose y 25.0))
-    (assert (jnp.allclose da 6.0))
-    (assert (jnp.allclose db 8.0))))
 
 ;;; with-keys — PRNG split sugar
 
