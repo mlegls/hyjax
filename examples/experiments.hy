@@ -1,14 +1,8 @@
-(import ;jax 
-        jax [numpy :as jnp
-             lax
-             grad jit vmap
+(import jax [numpy :as jnp
+             grad
              random]
         hy [macroexpand]
-        hyrule [macroexpand-all]
-        hy.pyops [reduce +]
-        hy.models [List :as HyList 
-                   Expression
-                   Symbol])
+        hyrule [macroexpand-all])
 
 (require hyjax [defn/j mapv lcond if/j cond/j])
 

@@ -10,7 +10,8 @@ Dev setup:
 git clone https://github.com/mlegls/hyjax
 cd hyjax
 uv sync
-uv run hy examples/experiments.hy
+uv run pytest                       # run the test suite
+uv run hy examples/experiments.hy   # run the example script
 ```
 
 Hyjax is [Hy](https://github.com/hylang/hy) bindings for [JAX](https://github.com/google/jax). 

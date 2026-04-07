@@ -23,8 +23,8 @@ dependencies = [
     "jax>=0.4.30",
 ]
 
-[project.optional-dependencies]
-dev = []
+[dependency-groups]
+dev = ["pytest>=8"]
 
 [project.urls]
 Homepage = "https://github.com/mlegls/hyjax"
@@ -37,4 +37,14 @@ packages = ["src/hyjax"]
 "src/hyjax/__init__.hy" = "hyjax/__init__.hy"
 
 [tool.hatch.build.targets.sdist]
-include = ["src/hyjax", "examples", "README.md", "LICENSE"]
+include = ["src/hyjax", "examples", "tests", "README.md", "LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Hy test files don't match python_files (*.py), but tests/conftest.py
+# registers a pytest_collect_file hook that collects test_*.hy files.
+python_files = ["test_*.py", "test_*.hy"]
+# Disable assertion rewriting: pytest's rewriter parses sources as Python
+# AST, which fails on .hy files. Hy's (assert ...) compiles to a plain
+# Python assert, which is perfectly readable on failure.
+addopts = "--assert=plain"
